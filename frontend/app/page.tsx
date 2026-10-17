@@ -125,6 +125,8 @@ export default function Home() {
               <label>Payout (GEN)<input value={form.payout} onChange={(e) => setForm({ ...form, payout: e.target.value })} /></label>
               <label>Premium (GEN, min {minPremium})<input value={form.premium} onChange={(e) => setForm({ ...form, premium: e.target.value })} /></label>
             </div>
+            {(() => { try { return !!stats && toWei(form.payout || "0") > BigInt(stats.free) + toWei(form.premium || "0"); } catch { return false; } })() &&
+              <div className="reason" style={{ borderColor: "var(--deny)" }}>The pool only has {fmt(stats?.free)} GEN of free capacity, so it can’t back this payout yet. Lower the payout or <a href="#" onClick={(e) => { e.preventDefault(); setTab("Pool"); }}>add liquidity</a> first.</div>}
             <button className="btn" disabled={!!busy} onClick={() => { try {
               run("Buying policy", "buy_policy", [form.kind, form.subject, form.url, form.terms, toWei(form.payout)], toWei(form.premium), "Policy bought");
             } catch (e: any) { setToast({ msg: e.message, err: true }); } }}>Buy policy</button>
