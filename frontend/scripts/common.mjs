@@ -4,7 +4,7 @@ import { TransactionStatus } from "genlayer-js/types";
 import fs from "node:fs";
 
 export const RPC = process.env.NEXT_PUBLIC_GENLAYER_RPC || "https://studio-next.genlayer.com/api";
-const base = chains.studionext ?? chains.studioNext ?? chains.studionet;
+const base = chains.studioDevnet ?? chains.studionext ?? chains.studioNext ?? chains.studionet;
 export const chain = { ...base, id: Number(process.env.NEXT_PUBLIC_CHAIN_ID || 61997), name: "GenLayer Studio Next", rpcUrls: { default: { http: [RPC] } } };
 
 export function loadEnv() {
@@ -20,4 +20,14 @@ export async function wait(client, hash) {
   const res = r?.txExecutionResultName ?? r?.result_name;
   if (res && String(res).includes("ERROR")) throw new Error(`tx ${hash} failed: ${res}`);
   return r;
+}
+
+const MSG = BigInt(process.env.NEXT_PUBLIC_MESSAGE_FEES || "1000000000");
+const LIGHT = { leaderTimeunitsAllocation: 100n, validatorTimeunitsAllocation: 200n, totalMessageFees: 0n };
+const HEAVY = { leaderTimeunitsAllocation: 400n, validatorTimeunitsAllocation: 800n, totalMessageFees: MSG };
+const POLICY = { evaluate_claim: HEAVY, appeal_claim: HEAVY, withdraw_free: { ...LIGHT, totalMessageFees: MSG } };
+// Consensus v0.6: price the fee against live network policy, then submit distribution + feeValue unchanged.
+export async function feesFor(client, fn) {
+  const est = await client.estimateTransactionFees({ ...(POLICY[fn] ?? LIGHT), appealRounds: 1n, rotations: [1n, 1n] });
+  return { distribution: est.distribution, feeValue: est.feeValue };
 }

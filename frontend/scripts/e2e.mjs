@@ -1,12 +1,12 @@
 // Live end-to-end run against Studio Next. Writes evidence to ../docs/e2e-evidence.json
 import fs from "node:fs";
-import { loadEnv, wait } from "./common.mjs";
+import { loadEnv, wait, feesFor } from "./common.mjs";
 
 const { account, client } = loadEnv();
 const address = process.env.NEXT_PUBLIC_POOL_ADDRESS; if (!address) throw new Error("Set NEXT_PUBLIC_POOL_ADDRESS");
 const GEN = 10n ** 18n, ev = [];
 const call = async (fn, args = [], value = 0n) => {
-  const hash = await client.writeContract({ address, functionName: fn, args, value });
+  const hash = await client.writeContract({ address, functionName: fn, args, value, fees: await feesFor(client, fn) });
   await wait(client, hash); ev.push({ fn, args: args.map(String), hash }); console.log("✓", fn, hash); return hash;
 };
 const read = async (fn, args = []) => JSON.parse(await client.readContract({ address, functionName: fn, args }));

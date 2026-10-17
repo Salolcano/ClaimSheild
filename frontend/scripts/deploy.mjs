@@ -1,11 +1,11 @@
 // Usage: npm run deploy:contract [path]   (defaults to ../contracts/policy_pool.py)
 import fs from "node:fs";
-import { loadEnv, wait } from "./common.mjs";
+import { loadEnv, wait, feesFor } from "./common.mjs";
 
 const file = process.argv[2] || "../contracts/policy_pool.py";
 const { account, client } = loadEnv();
 console.log("Deployer:", account.address, "\nDeploying", file);
-const hash = await client.deployContract({ code: fs.readFileSync(file, "utf8"), args: [], leaderOnly: false });
+const hash = await client.deployContract({ code: fs.readFileSync(file, "utf8"), args: [], leaderOnly: false, fees: await feesFor(client, "__deploy__") });
 console.log("Deploy tx:", hash);
 const r = await wait(client, hash);
 const addr = r?.data?.contract_address ?? r?.txDataDecoded?.contractAddress ?? r?.to_address;

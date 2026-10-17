@@ -12,6 +12,12 @@ npm run deploy:contract       # prints CONTRACT ADDRESS
 Put the printed address in `frontend/.env` as `NEXT_PUBLIC_POOL_ADDRESS`.
 Alternative: paste `contracts/policy_pool.py` into the Studio Next UI, deploy with no constructor args, copy the address.
 
+> **Fees (consensus v0.6).** Studio Next rejects any write without a fee quote (`FeeValueMustBeNonZero`).
+> `lib/chain.ts` and `scripts/common.mjs` call `estimateTransactionFees` per method and submit the returned
+> `distribution` + `feeValue`. Wallets need GEN for the fee deposit **plus** any premium/deposit value; unused fee
+> is refunded at finalization. If a method runs out of budget, raise its entry in `POLICY` (or
+> `NEXT_PUBLIC_MESSAGE_FEES` for payout transfers), ideally from a `gltest --fee-profile` run.
+
 ## 2. Prove it live (what a reviewer will check)
 ```bash
 npm run e2e     # funds pool, runs a PAID claim and a DENIED+appeal claim, writes docs/e2e-evidence.json

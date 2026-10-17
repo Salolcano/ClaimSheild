@@ -8,7 +8,7 @@ export const EXPLORER = process.env.NEXT_PUBLIC_EXPLORER || "https://explorer-st
 export const CONTRACT = (process.env.NEXT_PUBLIC_POOL_ADDRESS || "") as `0x${string}`;
 
 // Start from whichever Studio chain preset this genlayer-js build ships, then pin id + RPC to Studio Next.
-const base: any = (chains as any).studionext ?? (chains as any).studioNext ?? (chains as any).studionet;
+const base: any = (chains as any).studioDevnet ?? (chains as any).studionext ?? (chains as any).studioNext ?? (chains as any).studionet;
 export const chain: any = {
   ...base, id: CHAIN_ID, name: "GenLayer Studio Next",
   rpcUrls: { default: { http: [RPC] } },
@@ -38,9 +38,25 @@ export async function readJson<T = any>(fn: string, args: any[] = []): Promise<T
   return JSON.parse(typeof out === "string" ? out : String(out));
 }
 
+// Consensus v0.6: every deploy/write must carry a fee quote. We size it per method, ask the SDK
+// to price it against live network policy, and submit the returned distribution + feeValue unchanged.
+// Unused budget is refunded at finalization. Regenerate/tune with a `gltest --fee-profile` run.
+const MSG = BigInt(process.env.NEXT_PUBLIC_MESSAGE_FEES || "1000000000"); // budget for emitted payout transfers
+const LIGHT = { leaderTimeunitsAllocation: 100n, validatorTimeunitsAllocation: 200n, totalMessageFees: 0n };
+const HEAVY = { leaderTimeunitsAllocation: 400n, validatorTimeunitsAllocation: 800n, totalMessageFees: MSG }; // LLM + web + payout
+const POLICY: Record<string, typeof LIGHT> = {
+  evaluate_claim: HEAVY, appeal_claim: HEAVY, withdraw_free: { ...LIGHT, totalMessageFees: MSG },
+};
+export async function feesFor(c: any, fn: string) {
+  const base = POLICY[fn] ?? LIGHT;
+  const est = await c.estimateTransactionFees({ ...base, appealRounds: 1n, rotations: [1n, 1n] });
+  return { distribution: est.distribution, feeValue: est.feeValue };
+}
+
 export async function send(account: string, fn: string, args: any[] = [], value: bigint = 0n) {
   const c: any = client(account);
-  const hash = await c.writeContract({ address: CONTRACT, functionName: fn, args, value });
+  const fees = await feesFor(c, fn);
+  const hash = await c.writeContract({ address: CONTRACT, functionName: fn, args, value, fees });
   const receipt: any = await c.waitForTransactionReceipt({
     hash, status: TransactionStatus.ACCEPTED, retries: 120, interval: 3000,
   });
